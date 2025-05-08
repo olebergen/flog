@@ -3,7 +3,7 @@
   "version": "0.0.3",
   "type": "module",
   "bin": {
-    "flog": "./bin/flog"
+    "flog": "bin/flog"
   },
   "scripts": {
     "types": "tsc --noEmit",
