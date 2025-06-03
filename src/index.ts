@@ -2,23 +2,19 @@ import { spawn } from 'child_process';
 import readline from 'node:readline';
 import { PassThrough } from 'node:stream';
 
+const [cmd, ...args] = process.argv.slice(2);
+
 const data: string[] = [];
 let filter = '';
 
 console.clear();
 
-const child = spawn('npm', ['run', 'dev:dhr:no-sb']); // todo richtiger cmd
+const child = spawn(cmd, args);
 
 const stream = new PassThrough();
 stream.pipe(process.stdout, { end: false });
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  // output: process.stdout,
-});
-
-// child.stdout.pipe(process.stdout);
-// child.stderr.pipe(process.stderr);
+const rl = readline.createInterface({ input: process.stdin });
 
 const print = (chunk?: unknown) => stream.write(chunk ?? '\n');
 
@@ -26,13 +22,10 @@ const decode = (buf: Buffer) => {
   const lines = buf.toString().split('\n');
   for (let line of lines) {
     if (!line) continue;
-
     line += '\n';
-
     data.push(line);
 
     const withFilter = filter && line.toLowerCase().includes(filter.toLowerCase());
-
     if (withFilter) print(line);
     else if (!filter) print(line);
   }
