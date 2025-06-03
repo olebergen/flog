@@ -1,69 +1,59 @@
 import { spawn } from 'child_process';
 import readline from 'node:readline';
+import { PassThrough } from 'node:stream';
 
-// assuming these are nextjs server logs, for example:
-// error: Failed getting draws {"context":"getDraws","error":{},"origin":"https://www.traumhausverlosung.de.localhost:4000","pathname":"/","service":"dhr-frontend","sessionId":"1918d6a1-00aa-40dd-accb-e081b8405c82","timestamp":"2025-05-08 21:57:51.021"}
-
-// stored as parsed javascript objects, if that's too memory intensive store them as strings and parse on demand
-
-// parse toggle with keydown: https://stackoverflow.com/a/55182456/11918503
-// logpipe format?: https://logpipe.pages.dev/
-
-type UnknownObject = { [key: string]: unknown };
-type LogLine = string | UnknownObject;
+const data: string[] = [];
+let filter = '';
 
 console.clear();
 
 const child = spawn('npm', ['run', 'dev:dhr:no-sb']); // todo richtiger cmd
 
+const stream = new PassThrough();
+stream.pipe(process.stdout, { end: false });
+
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout,
-  prompt: 'filter> ',
+  // output: process.stdout,
 });
-
-const data: LogLine[] = [];
 
 // child.stdout.pipe(process.stdout);
 // child.stderr.pipe(process.stderr);
 
+const print = (chunk?: unknown) => stream.write(chunk ?? '\n');
+
 const decode = (buf: Buffer) => {
   const lines = buf.toString().split('\n');
-  for (const line of lines) {
-    try {
-      if (line) {
-        const parsed = JSON.parse(line);
-        data.push(parsed);
-      }
-    } catch {
-      data.push(line);
-    }
+  for (let line of lines) {
+    if (!line) continue;
+
+    line += '\n';
+
+    data.push(line);
+
+    const withFilter = filter && line.toLowerCase().includes(filter.toLowerCase());
+
+    if (withFilter) print(line);
+    else if (!filter) print(line);
   }
 };
 
-function render(arr: LogLine[]) {
+const render = (arr: string[]) => {
   console.clear();
   for (const line of arr) {
-    process.stdout.write(line + '\n');
+    print(line);
   }
-}
+};
 
 rl.prompt();
 
 rl.on('line', (line) => {
-  const term = line.trim();
+  filter = line.trim().toLowerCase();
 
-  if (!term) render(data);
+  if (!filter) render(data);
   else {
     const hits = data.filter((log) => {
-      if (typeof log === 'string') {
-        return log.includes(term);
-      }
-      return Object.values(log).some((value) => {
-        if (typeof value === 'string') return value.includes(term);
-        if (typeof value === 'number') return value.toString().includes(term);
-        return false;
-      });
+      return log.toLowerCase().includes(filter);
     });
 
     render(hits);
@@ -75,8 +65,8 @@ rl.on('line', (line) => {
 child.stdout.on('data', decode);
 child.stderr.on('data', decode);
 
-child.on('error', (err) => process.stderr.write(`flog error: ${err.message}`));
+child.on('error', (err) => process.stderr.write(`error: ${err.message}`));
 
 child.on('close', (code) => {
-  process.stdout.write(`flog closed with code: ${code}`);
+  process.stdout.write(`closed with code: ${code}`);
 });
