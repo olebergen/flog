@@ -7,8 +7,6 @@ const [cmd, ...args] = process.argv.slice(2);
 const data: string[] = [];
 let filter = '';
 
-console.clear();
-
 const child = spawn(cmd, args);
 
 const stream = new PassThrough();
